@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#10251b">
+  <meta name="description" content="Wildlands Online — вход в общий игровой мир">
+  <title>Wildlands Online — Играть</title>
+  <style>
+    *{box-sizing:border-box}html,body{min-height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:#f3ffed}
+    body{background:radial-gradient(ellipse at 45% 25%,#315d43 0,#173524 43%,#0a1711 100%);display:grid;place-items:center;padding:26px 16px}
+    .panel{max-width:440px;width:100%;padding:26px 22px;border-radius:24px;background:#102418d9;border:1px solid #ffffff23;box-shadow:0 20px 65px #0008;text-align:center}
+    .tree{font-size:64px;filter:drop-shadow(0 7px 9px #0005)}h1{font-size:27px;letter-spacing:.05em;margin:8px 0 2px}h2{font-size:18px;margin:15px 0 5px}
+    .tag{font-size:13px;color:#a8cbb2}.line{height:1px;background:#ffffff20;margin:23px 0}
+    #status{display:inline-block;padding:8px 12px;border-radius:999px;background:#52604b;color:#fff;font-size:13px;font-weight:700}
+    #status.online{background:#286a3b}#status.offline{background:#643c3c}
+    p{color:#c1d5c5;line-height:1.55;font-size:14px}a.play{display:block;text-decoration:none;margin-top:20px;padding:16px;border-radius:14px;background:linear-gradient(#88db84,#4daa5d);color:#0e2b16;font-size:17px;font-weight:800;box-shadow:0 7px 0 #2a723f}
+    a.play[aria-disabled="true"]{background:#506857;color:#b7c8bb;box-shadow:none;pointer-events:none}
+    .sub{font-size:12px;color:#94b09b;margin:20px 0 0}.link{border:0;background:transparent;color:#a8e8af;text-decoration:underline;cursor:pointer;padding:10px;font-size:14px}
+  </style>
+</head>
+<body>
+  <main class="panel">
+    <div class="tree" aria-hidden="true">🌲</div>
+    <h1>WILDLANDS ONLINE</h1>
+    <div class="tag">Выживай • Собирай ресурсы • Строй • Играй с друзьями</div>
+    <div class="line"></div>
+    <div id="status" role="status" aria-live="polite">Проверяем сервер...</div>
+    <h2 id="headline">Подключаемся к игровому миру</h2>
+    <p id="detail">Автоматически ищем действующую ссылку. Обычно это занимает несколько секунд.</p>
+    <a class="play" id="play" href="#" aria-disabled="true" tabindex="-1">🎮 Играть</a>
+    <button class="link" id="retry" type="button">↻ Проверить снова</button>
+    <p class="sub">Постоянная страница входа. Игра работает на телефоне владельца: если телефон или интернет выключены, сервер недоступен.</p>
+  </main>
+  <script>
+    'use strict';
+    const badge = document.getElementById('status');
+    const headline = document.getElementById('headline');
+    const detail = document.getElementById('detail');
+    const play = document.getElementById('play');
+    let busy = false;
+    function allowedLink(input) {
+      try {
+        const url = new URL(input);
+        const host = url.hostname.toLowerCase();
+        return url.protocol === 'https:' && (
+          host.endsWith('.run.pinggy-free.link') ||
+          host.endsWith('.free.pinggy.net')
+        ) && url.username === '' && url.password === '' && url.port === '';
+      } catch { return false; }
+    }
+    function show(isOnline, title, description, url='') {
+      badge.className = isOnline ? 'online' : 'offline';
+      badge.textContent = isOnline ? '● Мир доступен' : '● Сервер недоступен';
+      headline.textContent = title;
+      detail.textContent = description;
+      play.setAttribute('aria-disabled', String(!isOnline));
+      play.tabIndex = isOnline ? 0 : -1;
+      play.href = isOnline ? url : '#';
+    }
+    async function refresh() {
+      if (busy) return;
+      busy = true;
+      try {
+        const res = await fetch('./status.json?t=' + Date.now(), {cache:'no-store'});
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        const time = Date.parse(data.updated_at || '');
+        const age = Date.now() - time;
+        if (data.online === true && allowedLink(data.url) && Number.isFinite(age) && age >= -120000 && age < 27 * 60 * 1000) {
+          show(true, 'Игровой мир ждёт тебя!', 'Нажми «Играть», чтобы войти через действующий адрес Pinggy.', data.url);
+        } else {
+          show(false, 'Сервер пока не в сети', 'Termux переподключается или последнее подтверждение работы устарело. Попробуй чуть позже.');
+        }
+      } catch {
+        show(false, 'Не удалось проверить ссылку', 'Не получилось загрузить состояние сервера. Проверь интернет и попробуй ещё раз.');
+      } finally { busy = false; }
+    }
+    document.getElementById('retry').addEventListener('click', refresh);
+    refresh();
+    setInterval(refresh, 45000);
+  </script>
+</body>
+</html>
